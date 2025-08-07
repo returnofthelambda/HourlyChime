@@ -4,14 +4,19 @@ name: Build Wear OS Hourly Chime App
 # In this case, it triggers on every 'push' to the 'main' branch.
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "packaging" ]
 
 # This section defines the actual jobs to be run.
 jobs:
   build:
     # The type of virtual machine to run the job on. 'ubuntu-latest' is the standard.
     runs-on: ubuntu-latest
-
+    
+    # Grant the workflow permission to write to GitHub Packages
+    permissions:
+      contents: read
+      packages: write
+      
     # The sequence of steps that make up the job.
     steps:
       # Step 1: Check out your repository's code so the workflow can access it.
@@ -45,11 +50,10 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew assembleDebug
 
-      # Step 6: Upload the generated APK as a build artifact.
-      # This makes the APK file available for download after the workflow is complete.
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: hourly-chime-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-
+      # Step 6: Upload the generated APK as a Package
+      # The GITHUB_TOKEN is automatically provided by GitHub Actions
+      - name: Publish to GitHub Packages
+        run: ./gradlew publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ secrets.GITHUB_ACTOR }}
