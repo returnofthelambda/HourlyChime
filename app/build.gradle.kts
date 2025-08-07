@@ -2,6 +2,7 @@ plugins {
 	id("com.android.application")
 	id("org.jetbrains.kotlin.android")
 	id("org.jetbrains.kotlin.plugin.compose")
+	id("maven-publish")
 }
 
 android {
@@ -22,15 +23,15 @@ android {
 	buildTypes {
 		release {
 			isMinifyEnabled = false
-				proguardFiles(
-						getDefaultProguardFile("proguard-android-optimize.txt"),
-						"proguard-rules.pro"
-						)
+			proguardFiles(
+					getDefaultProguardFile("proguard-android-optimize.txt"),
+					"proguard-rules.pro"
+					)
 		}
 	}
 	compileOptions {
 		sourceCompatibility = JavaVersion.VERSION_1_8
-			targetCompatibility = JavaVersion.VERSION_1_8
+		targetCompatibility = JavaVersion.VERSION_1_8
 	}
 	kotlinOptions {
 		jvmTarget = "1.8"
@@ -67,4 +68,30 @@ dependencies {
 
 		// WorkManager for background tasks
 		implementation("androidx.work:work-runtime-ktx:2.9.0")
+}
+
+publishing {
+    publications {
+        // We'll name our publication "debug"
+        create<MavenPublication>("debug") {
+            // These are the coordinates for your package
+            groupId = "com.github.returnofthelambda"
+            artifactId = "hourly-chime"
+            version = android.defaultConfig.versionName
+
+            // Tell Gradle to publish the debug APK file
+            artifact("$buildDir/outputs/apk/debug/app-debug.apk")
+        }
+    }
+    repositories {
+        // Define the repository to publish to, which is GitHub Packages
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/returnofthelambda/HourlyChime")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
 }
