@@ -74,23 +74,21 @@ publishing {
     publications {
         // We'll name our publication "debug"
         create<MavenPublication>("debug") {
-            // These are the coordinates for your package
-            groupId = "com.github.returnofthelambda"
-            artifactId = "hourly-chime"
-            version = android.defaultConfig.versionName
+			groupId = "com.example.hourlychime"
+            artifactId = "app"
+            version = project.findProperty("appVersion")?.toString() ?: android.defaultConfig.versionName
 
             // Tell Gradle to publish the debug APK file
             artifact("$buildDir/outputs/apk/debug/app-debug.apk")
         }
     }
     repositories {
-        // Define the repository to publish to, which is GitHub Packages
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/returnofthelambda/HourlyChime")
+            url = uri("https://maven.pkg.github.com/${System.getenv("GITHUB_REPOSITORY")}")
             credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
+                username = System.getenv("USERNAME")
+                password = System.getenv("TOKEN")
             }
         }
     }
