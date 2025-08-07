@@ -4,7 +4,7 @@ name: Build Wear OS Hourly Chime App
 # In this case, it triggers on every 'push' to the 'main' branch.
 on:
   push:
-    branches: [ "packaging" ]
+    branches: [ "master" ]
 
 # This section defines the actual jobs to be run.
 jobs:
