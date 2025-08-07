@@ -1,43 +1,52 @@
 name: Build Wear OS Hourly Chime App
 
-# This section defines when the workflow will run.
-# In this case, it triggers on every 'push' to the 'main' branch.
 on:
   push:
     branches: [ "master" ]
-    paths-ignore:
-      - 'LICENSE'
-      - 'README.md'
-      - '.gitignore'
-      - 'docs/**'
 
-# This section defines the actual jobs to be run.
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
-    # The type of virtual machine to run the job on. 'ubuntu-latest' is the standard.
     runs-on: ubuntu-latest
-    
-    # Grant the workflow permission to write to GitHub Packages
-    permissions:
-      contents: read
-      packages: write
-      
-    # The sequence of steps that make up the job.
+
     steps:
-      # Step 1: Check out your repository's code so the workflow can access it.
+      # Step 1: Checkout the code.
+      # fetch-depth: 2 is important here. It fetches the latest commit AND the one before it
+      # so we can compare them.
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
-      # Step 2: Set up the Java Development Kit (JDK), which is required by Gradle.
+      # Step 2: Check if the versionName has actually changed since the last commit.
+      - name: Check for version change
+        id: check_version
+        run: |
+          # This command compares the build file between the last two commits (HEAD~1 and HEAD).
+          # It then uses grep to see if the "versionName" line is part of the changes.
+          # The -q flag makes grep quiet; it just sets its exit code.
+          if git diff HEAD~1 HEAD -- app/build.gradle.kts | grep -q 'versionName ='; then
+            echo "✅ Version has changed. Proceeding with build and publish."
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "🛑 Version has not changed. Skipping build and publish."
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Step 3: Set up JDK, but only if the version changed.
       - name: Set up JDK 17
+        if: steps.check_version.outputs.version_changed == 'true'
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # Step 3: Cache Gradle dependencies to speed up future builds.
-      # The first build will be slow, but subsequent builds will be much faster.
+      # Step 4: Cache Gradle, but only if the version changed.
       - name: Cache Gradle packages
+        if: steps.check_version.outputs.version_changed == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -47,18 +56,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # Step 4: Make the Gradle Wrapper script executable.
+      # Step 5: Get the app version, but only if the version changed.
+      - name: Get app version
+        if: steps.check_version.outputs.version_changed == 'true'
+        id: get_version
+        run: echo "version=$(grep "versionName =" app/build.gradle.kts | awk -F'"' '{print $2}')" >> $GITHUB_OUTPUT
+
+      # Step 6: Make gradlew executable, but only if the version changed.
       - name: Make gradlew executable
+        if: steps.check_version.outputs.version_changed == 'true'
         run: chmod +x ./gradlew
 
-      # Step 5: Run the build command to compile the app and create the debug APK.
-      - name: Build with Gradle
-        run: ./gradlew assembleDebug
-
-      # Step 6: Upload the generated APK as a Package
-      # The GITHUB_TOKEN is automatically provided by GitHub Actions
-      - name: Publish to GitHub Packages
-        run: ./gradlew publish
+      # Step 7: Publish the package, but only if the version changed.
+      - name: Publish package to GitHub Packages
+        if: steps.check_version.outputs.version_changed == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_ACTOR: ${{ secrets.GITHUB_ACTOR }}
+          USERNAME: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew publish -PappVersion=${{ steps.get_version.outputs.version }}.${{ github.run_number }}
