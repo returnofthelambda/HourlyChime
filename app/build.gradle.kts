@@ -75,7 +75,7 @@ publishing {
         // We'll name our publication "debug"
         create<MavenPublication>("debug") {
             // These are the coordinates for your package
-            groupId = "com.github.YOUR_USERNAME" // <-- Replace with your GitHub username
+            groupId = "com.github.returnofthelambda"
             artifactId = "hourly-chime"
             version = android.defaultConfig.versionName
 
@@ -87,7 +87,7 @@ publishing {
         // Define the repository to publish to, which is GitHub Packages
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME") // <-- Replace with your username/repo
+            url = uri("https://maven.pkg.github.com/returnofthelambda/HourlyChime")
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")
