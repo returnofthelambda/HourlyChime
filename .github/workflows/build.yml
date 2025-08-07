@@ -5,6 +5,11 @@ name: Build Wear OS Hourly Chime App
 on:
   push:
     branches: [ "master" ]
+    paths-ignore:
+      - 'LICENSE'
+      - 'README.md'
+      - '.gitignore'
+      - 'docs/**'
 
 # This section defines the actual jobs to be run.
 jobs:
