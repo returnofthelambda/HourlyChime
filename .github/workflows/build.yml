@@ -73,4 +73,4 @@ jobs:
         env:
           USERNAME: ${{ github.actor }}
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew publish -PappVersion=${{ steps.get_version.outputs.version }}.${{ github.run_number }}
+        run: ./gradlew assembleDebug publish -PappVersion=${{ steps.get_version.outputs.version }}.${{ github.run_number }}
