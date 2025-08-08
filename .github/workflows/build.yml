@@ -1,4 +1,4 @@
-name: Build Wear OS Hourly Chime App
+name: Build and Publish Wear OS App
 
 on:
   push:
@@ -13,21 +13,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the code.
-      # fetch-depth: 2 is important here. It fetches the latest commit AND the one before it
-      # so we can compare them.
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
-      # Step 2: Check if the versionName has actually changed since the last commit.
       - name: Check for version change
         id: check_version
         run: |
-          # This command compares the build file between the last two commits (HEAD~1 and HEAD).
-          # It then uses grep to see if the "versionName" line is part of the changes.
-          # The -q flag makes grep quiet; it just sets its exit code.
           if git diff HEAD~1 HEAD -- app/build.gradle.kts | grep -q 'versionName ='; then
             echo "✅ Version has changed. Proceeding with build and publish."
             echo "version_changed=true" >> $GITHUB_OUTPUT
@@ -36,7 +29,6 @@ jobs:
             echo "version_changed=false" >> $GITHUB_OUTPUT
           fi
 
-      # Step 3: Set up JDK, but only if the version changed.
       - name: Set up JDK 17
         if: steps.check_version.outputs.version_changed == 'true'
         uses: actions/setup-java@v4
@@ -44,7 +36,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # Step 4: Cache Gradle, but only if the version changed.
       - name: Cache Gradle packages
         if: steps.check_version.outputs.version_changed == 'true'
         uses: actions/cache@v4
@@ -56,21 +47,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # Step 5: Get the app version, but only if the version changed.
       - name: Get app version
         if: steps.check_version.outputs.version_changed == 'true'
         id: get_version
         run: echo "version=$(grep "versionName =" app/build.gradle.kts | awk -F'"' '{print $2}')" >> $GITHUB_OUTPUT
 
-      # Step 6: Make gradlew executable, but only if the version changed.
       - name: Make gradlew executable
         if: steps.check_version.outputs.version_changed == 'true'
         run: chmod +x ./gradlew
 
-      # Step 7: Publish the package, but only if the version changed.
       - name: Publish package to GitHub Packages
         if: steps.check_version.outputs.version_changed == 'true'
         env:
           USERNAME: ${{ github.actor }}
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew assembleDebug publish -PappVersion=${{ steps.get_version.outputs.version }}.${{ github.run_number }}
+        # We can now simplify this back to just "publish"
+        run: ./gradlew publish -PappVersion=${{ steps.get_version.outputs.version }}.${{ github.run_number }}

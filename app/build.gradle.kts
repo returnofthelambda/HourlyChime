@@ -14,7 +14,7 @@ android {
 				minSdk = 30
 				targetSdk = 34
 				versionCode = 1
-				versionName = "1.1.1"
+				versionName = "1.1.2"
 				vectorDrawables {
 					useSupportLibrary = true
 				}
@@ -72,14 +72,16 @@ dependencies {
 
 publishing {
     publications {
-        // We'll name our publication "debug"
+        // We can name the publication "debug" to match the component.
         create<MavenPublication>("debug") {
-			groupId = "com.example.hourlychime"
+            groupId = "com.example.hourlychime"
             artifactId = "app"
             version = project.findProperty("appVersion")?.toString() ?: android.defaultConfig.versionName
 
-            // Tell Gradle to publish the debug APK file
-            artifact("$buildDir/outputs/apk/debug/app-debug.apk")
+            // This is the key change. Instead of pointing to a file path,
+            // we point to the component that CREATES the file. Gradle now
+            // understands the dependency correctly.
+            from(components["debug"])
         }
     }
     repositories {
