@@ -70,28 +70,33 @@ dependencies {
 		implementation("androidx.work:work-runtime-ktx:2.9.0")
 }
 
-publishing {
-    publications {
-        // We can name the publication "debug" to match the component.
-        create<MavenPublication>("debug") {
-            groupId = "com.example.hourlychime"
-            artifactId = "app"
-            version = project.findProperty("appVersion")?.toString() ?: android.defaultConfig.versionName
+// THIS IS THE CORRECTED PUBLISHING BLOCK
+afterEvaluate {
+    publishing {
+        publications {
+            // Create a publication for our debug APK
+            create<MavenPublication>("debug") {
+                groupId = "com.example.hourlychime"
+                artifactId = "app-debug" // Artifact ID for the debug version
+                version = project.findProperty("appVersion")?.toString() ?: android.defaultConfig.versionName
 
-            // This is the key change. Instead of pointing to a file path,
-            // we point to the component that CREATES the file. Gradle now
-            // understands the dependency correctly.
-            from(components["debug"])
+                // Tell Gradle which file to publish and which task creates it.
+                // This explicitly fixes the task dependency.
+                artifact("$buildDir/outputs/apk/debug/app-debug.apk") {
+                    builtBy(tasks.named("assembleDebug"))
+                }
+            }
         }
-    }
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/${System.getenv("GITHUB_REPOSITORY")}")
-            credentials {
-                username = System.getenv("USERNAME")
-                password = System.getenv("TOKEN")
+        repositories {
+            maven {
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/${System.getenv("GITHUB_REPOSITORY")}")
+                credentials {
+                    username = System.getenv("USERNAME")
+                    password = System.getenv("TOKEN")
+                }
             }
         }
     }
 }
+
