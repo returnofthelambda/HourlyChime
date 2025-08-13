@@ -19,6 +19,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.*
+import androidx.wear.compose.material.dialog.Alert
+import androidx.wear.compose.material.dialog.Dialog
+import androidx.wear.compose.material.rememberPickerState
 import com.example.hourlychime.ChimeManager
 import com.example.hourlychime.R
 import java.text.SimpleDateFormat
@@ -134,30 +137,30 @@ fun WearApp() {
     }
 
     // --- Time Picker Dialog ---
-    if (showTimePickerDialog) {
-        TimePickerDialog(
-            initialHour = if (isEditingStartHour) startHour else endHour,
-            onDismiss = { showTimePickerDialog = false },
-            onTimeSelected = { selectedHour ->
-                if (isEditingStartHour) {
-                    startHour = selectedHour
-                    ChimeManager.setStartHour(context, selectedHour)
-                } else {
-                    endHour = selectedHour
-                    ChimeManager.setEndHour(context, selectedHour)
-                }
-                // If the chime is already enabled, reschedule it with the new times
-                if (isEnabled) {
-                    ChimeManager.scheduleNextChime(context)
-                }
-                showTimePickerDialog = false
+    TimePickerDialog(
+        showDialog = showTimePickerDialog,
+        initialHour = if (isEditingStartHour) startHour else endHour,
+        onDismiss = { showTimePickerDialog = false },
+        onTimeSelected = { selectedHour ->
+            if (isEditingStartHour) {
+                startHour = selectedHour
+                ChimeManager.setStartHour(context, selectedHour)
+            } else {
+                endHour = selectedHour
+                ChimeManager.setEndHour(context, selectedHour)
             }
-        )
-    }
+            // If the chime is already enabled, reschedule it with the new times
+            if (isEnabled) {
+                ChimeManager.scheduleNextChime(context)
+            }
+            showTimePickerDialog = false
+        }
+    )
 }
 
 @Composable
 fun TimePickerDialog(
+    showDialog: Boolean,
     initialHour: Int,
     onDismiss: () -> Unit,
     onTimeSelected: (Int) -> Unit
@@ -168,31 +171,38 @@ fun TimePickerDialog(
         initiallySelectedOption = hours.indexOf(initialHour)
     )
 
+    // The Dialog composable handles showing and hiding the dialog.
     Dialog(
+        showDialog = showDialog,
         onDismissRequest = onDismiss,
-        scrollableState = pickerState
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+        // The Alert composable provides the standard dialog layout.
+        Alert(
+            title = { Text("Select Hour", textAlign = TextAlign.Center) },
+            positiveButton = {
+                Button(
+                    onClick = { onTimeSelected(hours[pickerState.selectedOption]) },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Confirm") }
+            },
+            negativeButton = {
+                 Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.secondaryButtonColors(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Cancel") }
+            }
         ) {
+            // The content of the Alert is a ColumnScope, so we can place our Picker here.
             Picker(
                 state = pickerState,
-                modifier = Modifier.weight(1f),
-                separation = 8.dp
+                modifier = Modifier.height(100.dp),
+                separation = 4.dp
             ) { hourIndex ->
                 Text(
                     text = formatHour(hours[hourIndex]),
-                    style = MaterialTheme.typography.display1,
-                    textAlign = TextAlign.Center
+                    style = MaterialTheme.typography.title2
                 )
-            }
-            Button(
-                onClick = { onTimeSelected(hours[pickerState.selectedOption]) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Confirm")
             }
         }
     }
@@ -205,5 +215,6 @@ private fun formatHour(hour: Int): String {
         set(Calendar.MINUTE, 0)
     }
     // Using a simple 12-hour format with AM/PM
-    return SimpleDateFormat("h:mm a", Locale.getDefault()).format(calendar.time)
+    return SimpleDateFormat("h a", Locale.getDefault()).format(calendar.time)
 }
+
