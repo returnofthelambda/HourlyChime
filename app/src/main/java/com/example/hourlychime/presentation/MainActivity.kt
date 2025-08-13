@@ -10,28 +10,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import androidx.wear.compose.material.MaterialTheme
-import androidx.wear.compose.material.Scaffold
-import androidx.wear.compose.material.Switch
-import androidx.wear.compose.material.Text
-import androidx.wear.compose.material.ToggleChip
+import androidx.wear.compose.material.*
 import com.example.hourlychime.ChimeManager
 import com.example.hourlychime.R
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,83 +38,172 @@ fun WearApp() {
     val context = LocalContext.current
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    // --- NEW PERMISSION HANDLING LOGIC ---
+    // --- State for UI ---
+    var isEnabled by remember { mutableStateOf(ChimeManager.isChimeEnabled(context)) }
+    var startHour by remember { mutableStateOf(ChimeManager.getStartHour(context)) }
+    var endHour by remember { mutableStateOf(ChimeManager.getEndHour(context)) }
+    var showTimePickerDialog by remember { mutableStateOf(false) }
+    var isEditingStartHour by remember { mutableStateOf(true) }
 
-    // A launcher to request the exact alarm permission.
-    // When the user returns from the settings screen, this will re-check the permission.
+    // --- Permission Handling Logic ---
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        // After the user returns, we don't need to do anything here,
-        // because the check will happen again when they tap the toggle.
-    }
+    ) {}
 
-    // Function to check if the app has the required permission.
     fun hasPermission(): Boolean {
-        // For modern Android versions, we need to check canScheduleExactAlarms.
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             alarmManager.canScheduleExactAlarms()
         } else {
-            // On older versions, the manifest permission is enough.
             true
         }
     }
 
-    // --- UI STATE ---
-
-    // The initial state of the toggle is now based on BOTH the saved preference AND if the permission is granted.
-    var isChecked by remember {
-        mutableStateOf(ChimeManager.isChimeEnabled(context) && hasPermission())
-    }
-
+    // --- Main UI ---
     MaterialTheme {
-        Scaffold(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            timeText = { TimeText() }
+        ) {
+            val listState = rememberScalingLazyListState()
+            ScalingLazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.title1,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                item {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.title1,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
 
-                ToggleChip(
-                    modifier = Modifier.fillMaxWidth(),
-                    checked = isChecked,
-                    onCheckedChange = { newCheckedState ->
-                        if (newCheckedState) {
-                            // When turning the chime ON
-                            if (hasPermission()) {
-                                // If we have permission, schedule the chime and update the UI.
-                                ChimeManager.setChimeEnabled(context, true)
-                                ChimeManager.scheduleOrCancelChime(context, true)
-                                isChecked = true
-                            } else {
-                                // If we DON'T have permission, launch the system settings screen.
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                                    permissionLauncher.launch(intent)
+                item {
+                    ToggleChip(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                        checked = isEnabled,
+                        onCheckedChange = { newCheckedState ->
+                            if (newCheckedState) {
+                                if (hasPermission()) {
+                                    isEnabled = true
+                                    ChimeManager.setChimeEnabled(context, true)
+                                    ChimeManager.scheduleOrCancelChime(context, true)
+                                } else {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                        permissionLauncher.launch(intent)
+                                    }
                                 }
+                            } else {
+                                isEnabled = false
+                                ChimeManager.setChimeEnabled(context, false)
+                                ChimeManager.scheduleOrCancelChime(context, false)
                             }
-                        } else {
-                            // When turning the chime OFF, just cancel it.
-                            ChimeManager.setChimeEnabled(context, false)
-                            ChimeManager.scheduleOrCancelChime(context, false)
-                            isChecked = false
+                        },
+                        label = { Text("Enable Chime") },
+                        toggleControl = { Switch(checked = isEnabled) }
+                    )
+                }
+
+                item {
+                    Chip(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+                        label = { Text("Start Time") },
+                        secondaryLabel = { Text(formatHour(startHour)) },
+                        onClick = {
+                            isEditingStartHour = true
+                            showTimePickerDialog = true
                         }
-                    },
-                    label = {
-                        Text(text = stringResource(R.string.hourly_chime_label))
-                    },
-                    toggleControl = {
-                        Switch(checked = isChecked)
-                    }
+                    )
+                }
+
+                item {
+                    Chip(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                        label = { Text("End Time") },
+                        secondaryLabel = { Text(formatHour(endHour)) },
+                        onClick = {
+                            isEditingStartHour = false
+                            showTimePickerDialog = true
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    // --- Time Picker Dialog ---
+    if (showTimePickerDialog) {
+        TimePickerDialog(
+            initialHour = if (isEditingStartHour) startHour else endHour,
+            onDismiss = { showTimePickerDialog = false },
+            onTimeSelected = { selectedHour ->
+                if (isEditingStartHour) {
+                    startHour = selectedHour
+                    ChimeManager.setStartHour(context, selectedHour)
+                } else {
+                    endHour = selectedHour
+                    ChimeManager.setEndHour(context, selectedHour)
+                }
+                // If the chime is already enabled, reschedule it with the new times
+                if (isEnabled) {
+                    ChimeManager.scheduleNextChime(context)
+                }
+                showTimePickerDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun TimePickerDialog(
+    initialHour: Int,
+    onDismiss: () -> Unit,
+    onTimeSelected: (Int) -> Unit
+) {
+    val hours = (0..23).toList()
+    val pickerState = rememberPickerState(
+        initialNumberOfOptions = hours.size,
+        initiallySelectedOption = hours.indexOf(initialHour)
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        scrollableState = pickerState
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Picker(
+                state = pickerState,
+                modifier = Modifier.weight(1f),
+                separation = 8.dp
+            ) { hourIndex ->
+                Text(
+                    text = formatHour(hours[hourIndex]),
+                    style = MaterialTheme.typography.display1,
+                    textAlign = TextAlign.Center
                 )
+            }
+            Button(
+                onClick = { onTimeSelected(hours[pickerState.selectedOption]) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Confirm")
             }
         }
     }
 }
 
+// Helper function to format hour for display (e.g., 8 -> 8:00 AM)
+private fun formatHour(hour: Int): String {
+    val calendar = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, hour)
+        set(Calendar.MINUTE, 0)
+    }
+    // Using a simple 12-hour format with AM/PM
+    return SimpleDateFormat("h:mm a", Locale.getDefault()).format(calendar.time)
+}
