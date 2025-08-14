@@ -19,7 +19,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.*
-import androidx.wear.compose.material.dialog.Alert
 import androidx.wear.compose.material.dialog.Dialog
 import androidx.wear.compose.material.rememberPickerState
 import com.example.hourlychime.ChimeManager
@@ -170,39 +169,48 @@ fun TimePickerDialog(
         initialNumberOfOptions = hours.size,
         initiallySelectedOption = hours.indexOf(initialHour)
     )
+    val listState = rememberScalingLazyListState()
 
-    // The Dialog composable handles showing and hiding the dialog.
     Dialog(
         showDialog = showDialog,
         onDismissRequest = onDismiss,
+        // FIX: The scrollState parameter is removed from the Dialog call.
     ) {
-        // The Alert composable provides the standard dialog layout.
-        Alert(
-            title = { Text("Select Hour", textAlign = TextAlign.Center) },
-            positiveButton = {
+        // The content of the dialog is a scrollable column.
+        ScalingLazyColumn(
+            state = listState, // The state is correctly used here.
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
+        ) {
+            item { Text("Select Hour", style = MaterialTheme.typography.title2) }
+
+            item {
+                Picker(
+                    state = pickerState,
+                    modifier = Modifier.height(100.dp),
+                    separation = 4.dp
+                ) { hourIndex ->
+                    Text(
+                        text = formatHour(hours[hourIndex]),
+                        style = MaterialTheme.typography.title2
+                    )
+                }
+            }
+
+            item {
                 Button(
                     onClick = { onTimeSelected(hours[pickerState.selectedOption]) },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Confirm") }
-            },
-            negativeButton = {
-                 Button(
+            }
+
+            item {
+                Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.secondaryButtonColors(),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Cancel") }
-            }
-        ) {
-            // The content of the Alert is a ColumnScope, so we can place our Picker here.
-            Picker(
-                state = pickerState,
-                modifier = Modifier.height(100.dp),
-                separation = 4.dp
-            ) { hourIndex ->
-                Text(
-                    text = formatHour(hours[hourIndex]),
-                    style = MaterialTheme.typography.title2
-                )
             }
         }
     }
