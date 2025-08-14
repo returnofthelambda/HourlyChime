@@ -14,7 +14,7 @@ android {
 				minSdk = 30
 				targetSdk = 34
 				versionCode = 1
-				versionName = "1.1.3"
+				versionName = "1.3.1"
 				vectorDrawables {
 					useSupportLibrary = true
 				}
@@ -47,6 +47,13 @@ android {
 			excludes += "/META-INF/{AL2.0,LGPL2.1}"
 		}
 	}
+
+    applicationVariants.all {
+        outputs.forEach { output ->
+            val outputImpl = output as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            outputImpl.outputFileName = "HourlyChime.apk"
+        }
+    }
 }
 
 dependencies {
@@ -70,19 +77,16 @@ dependencies {
 		implementation("androidx.work:work-runtime-ktx:2.9.0")
 }
 
-// THIS IS THE CORRECTED PUBLISHING BLOCK
 afterEvaluate {
     publishing {
         publications {
-            // Create a publication for our debug APK
             create<MavenPublication>("debug") {
                 groupId = "com.example.hourlychime"
-                artifactId = "app-debug" // Artifact ID for the debug version
+                artifactId = "app-debug"
                 version = project.findProperty("appVersion")?.toString() ?: android.defaultConfig.versionName
 
-                // Tell Gradle which file to publish and which task creates it.
-                // This explicitly fixes the task dependency.
-                artifact("$buildDir/outputs/apk/debug/app-debug.apk") {
+                // FIX: Use the modern layout.buildDirectory API to avoid the deprecation warning.
+                artifact(layout.buildDirectory.file("outputs/apk/debug/HourlyChime.apk")) {
                     builtBy(tasks.named("assembleDebug"))
                 }
             }
@@ -99,4 +103,3 @@ afterEvaluate {
         }
     }
 }
-
