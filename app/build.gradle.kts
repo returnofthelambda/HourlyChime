@@ -14,7 +14,7 @@ android {
 				minSdk = 30
 				targetSdk = 34
 				versionCode = 1
-				versionName = "1.2"
+				versionName = "1.2.1"
 				vectorDrawables {
 					useSupportLibrary = true
 				}
@@ -82,9 +82,9 @@ afterEvaluate {
 
                 // Tell Gradle which file to publish and which task creates it.
                 // This explicitly fixes the task dependency.
-                artifact("$buildDir/outputs/apk/debug/app-debug.apk") {
-                    builtBy(tasks.named("assembleDebug"))
-                }
+				artifact(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk")) {
+					builtBy(tasks.named("assembleDebug"))
+				}
             }
         }
         repositories {
