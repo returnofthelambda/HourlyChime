@@ -14,7 +14,7 @@ android {
 				minSdk = 30
 				targetSdk = 34
 				versionCode = 1
-				versionName = "1.2.1"
+				versionName = "1.2.2"
 				vectorDrawables {
 					useSupportLibrary = true
 				}
@@ -82,7 +82,7 @@ afterEvaluate {
 
                 // Tell Gradle which file to publish and which task creates it.
                 // This explicitly fixes the task dependency.
-				artifact(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk")) {
+				artifact(layout.buildDirectory.file("outputs/apk/debug/HourlyChime.apk")) {
 					builtBy(tasks.named("assembleDebug"))
 				}
             }
