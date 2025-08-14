@@ -18,9 +18,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import androidx.wear.compose.material.dialog.Dialog
-import androidx.wear.compose.material.rememberPickerState
 import com.example.hourlychime.ChimeManager
 import com.example.hourlychime.R
 import java.text.SimpleDateFormat
@@ -174,11 +175,9 @@ fun TimePickerDialog(
     Dialog(
         showDialog = showDialog,
         onDismissRequest = onDismiss,
-        // FIX: The scrollState parameter is removed from the Dialog call.
     ) {
-        // The content of the dialog is a scrollable column.
         ScalingLazyColumn(
-            state = listState, // The state is correctly used here.
+            state = listState,
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
@@ -189,7 +188,8 @@ fun TimePickerDialog(
                 Picker(
                     state = pickerState,
                     modifier = Modifier.height(100.dp),
-                    separation = 4.dp
+                    separation = 4.dp,
+                    contentDescription = "Select hour"
                 ) { hourIndex ->
                     Text(
                         text = formatHour(hours[hourIndex]),
@@ -225,4 +225,3 @@ private fun formatHour(hour: Int): String {
     // Using a simple 12-hour format with AM/PM
     return SimpleDateFormat("h a", Locale.getDefault()).format(calendar.time)
 }
-
