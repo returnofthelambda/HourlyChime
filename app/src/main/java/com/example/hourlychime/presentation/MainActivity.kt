@@ -216,12 +216,29 @@ fun TimePickerDialog(
     }
 }
 
+// Cache for formatted hours to avoid Calendar and SimpleDateFormat allocations in the compose render loop
+private val hourFormatCache = Array(24) { "" }
+private var currentLocale: Locale? = null
+
 // Helper function to format hour for display (e.g., 8 -> 8:00 AM)
 private fun formatHour(hour: Int): String {
-    val calendar = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, hour)
-        set(Calendar.MINUTE, 0)
+    if (hour !in 0..23) return ""
+
+    val locale = Locale.getDefault()
+    if (locale != currentLocale) {
+        currentLocale = locale
+        for (i in hourFormatCache.indices) {
+            hourFormatCache[i] = ""
+        }
     }
-    // Using a simple 12-hour format with AM/PM
-    return SimpleDateFormat("h a", Locale.getDefault()).format(calendar.time)
+
+    if (hourFormatCache[hour].isEmpty()) {
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, 0)
+        }
+        // Using a simple 12-hour format with AM/PM
+        hourFormatCache[hour] = SimpleDateFormat("h a", locale).format(calendar.time)
+    }
+    return hourFormatCache[hour]
 }
