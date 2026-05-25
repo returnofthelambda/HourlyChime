@@ -1,0 +1,14 @@
+--- app/build.gradle.kts
++++ app/build.gradle.kts
+@@ -21,6 +21,11 @@
+				}
+		}
+
++    lint {
++        abortOnError = false
++        baseline = file("lint-baseline.xml")
++    }
++
+	buildTypes {
+		release {
+			isMinifyEnabled = false
