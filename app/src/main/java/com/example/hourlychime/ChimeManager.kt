@@ -69,9 +69,10 @@ object ChimeManager {
         setAlarm(context, nextChimeTime.timeInMillis)
     }
 
-    private fun calculateNextChimeTime(now: Calendar, startHour: Int, endHour: Int): Calendar {
+    @androidx.annotation.VisibleForTesting
+    internal fun calculateNextChimeTime(now: Calendar, startHour: Int, endHour: Int): Calendar {
         val currentHour = now.get(Calendar.HOUR_OF_DAY)
-        val nextChime = Calendar.getInstance()
+        val nextChime = now.clone() as Calendar
 
         if (currentHour < startHour) {
             // Case 1: Before the window today. Next chime is at the start hour today.
