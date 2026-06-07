@@ -24,8 +24,9 @@ import androidx.wear.compose.material.*
 import androidx.wear.compose.material.dialog.Dialog
 import com.example.hourlychime.ChimeManager
 import com.example.hourlychime.R
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -216,29 +217,23 @@ fun TimePickerDialog(
     }
 }
 
-// Cache for formatted hours to avoid Calendar and SimpleDateFormat allocations in the compose render loop
-private val hourFormatCache = Array(24) { "" }
-private var currentLocale: Locale? = null
+// Cached formatter to prevent recreation overhead in UI lists,
+// while responding dynamically to user Locale changes.
+private var cachedLocale: Locale? = null
+private var cachedFormatter: DateTimeFormatter? = null
+
+private fun getHourFormatter(): DateTimeFormatter {
+    val currentLocale = Locale.getDefault()
+    if (cachedLocale != currentLocale || cachedFormatter == null) {
+        cachedLocale = currentLocale
+        cachedFormatter = DateTimeFormatter.ofPattern("h a", currentLocale)
+    }
+    return cachedFormatter!!
+}
 
 // Helper function to format hour for display (e.g., 8 -> 8:00 AM)
 private fun formatHour(hour: Int): String {
-    if (hour !in 0..23) return ""
-
-    val locale = Locale.getDefault()
-    if (locale != currentLocale) {
-        currentLocale = locale
-        for (i in hourFormatCache.indices) {
-            hourFormatCache[i] = ""
-        }
-    }
-
-    if (hourFormatCache[hour].isEmpty()) {
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, 0)
-        }
-        // Using a simple 12-hour format with AM/PM
-        hourFormatCache[hour] = SimpleDateFormat("h a", locale).format(calendar.time)
-    }
-    return hourFormatCache[hour]
+    // ⚡ Bolt Optimization: Using java.time.LocalTime and a cached DateTimeFormatter
+    // reduces object allocation and formatting time compared to SimpleDateFormat and Calendar
+    return LocalTime.of(hour, 0).format(getHourFormatter())
 }
