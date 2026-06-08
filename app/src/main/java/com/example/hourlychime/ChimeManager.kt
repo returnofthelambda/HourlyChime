@@ -5,7 +5,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import com.example.hourlychime.presentation.MainActivity
-import java.util.Calendar
+import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 
 object ChimeManager {
 
@@ -58,7 +59,9 @@ object ChimeManager {
     }
 
     fun scheduleNextChime(context: Context) {
-        val now = Calendar.getInstance()
+        // ⚡ Bolt Optimization: Replace Calendar with java.time for better performance
+        // and reduced object allocation.
+        val now = ZonedDateTime.now()
         val startHour = getStartHour(context)
         val endHour = getEndHour(context)
 
@@ -66,30 +69,25 @@ object ChimeManager {
 
         // If nextChimeTime is null, it means we are outside the active window and should not schedule.
         // However, the logic in calculateNextChimeTime should always return a valid future time.
-        setAlarm(context, nextChimeTime.timeInMillis)
+        setAlarm(context, nextChimeTime.toInstant().toEpochMilli())
     }
 
     @androidx.annotation.VisibleForTesting
-    internal fun calculateNextChimeTime(now: Calendar, startHour: Int, endHour: Int): Calendar {
-        val currentHour = now.get(Calendar.HOUR_OF_DAY)
-        val nextChime = now.clone() as Calendar
+    internal fun calculateNextChimeTime(now: ZonedDateTime, startHour: Int, endHour: Int): ZonedDateTime {
+        val currentHour = now.hour
+        // ⚡ Bolt Optimization: truncatedTo reduces allocations vs setting individual fields
+        var nextChime = now.truncatedTo(ChronoUnit.HOURS)
 
         if (currentHour < startHour) {
             // Case 1: Before the window today. Next chime is at the start hour today.
-            nextChime.set(Calendar.HOUR_OF_DAY, startHour)
+            nextChime = nextChime.withHour(startHour)
         } else if (currentHour >= endHour) {
             // Case 2: After the window today. Next chime is at the start hour tomorrow.
-            nextChime.add(Calendar.DAY_OF_YEAR, 1)
-            nextChime.set(Calendar.HOUR_OF_DAY, startHour)
+            nextChime = nextChime.plusDays(1).withHour(startHour)
         } else {
             // Case 3: Within the window. Next chime is at the top of the next hour.
-            nextChime.add(Calendar.HOUR_OF_DAY, 1)
+            nextChime = nextChime.plusHours(1)
         }
-
-        // Set minutes and seconds to 0 for a precise top-of-the-hour chime.
-        nextChime.set(Calendar.MINUTE, 0)
-        nextChime.set(Calendar.SECOND, 0)
-        nextChime.set(Calendar.MILLISECOND, 0)
 
         return nextChime
     }

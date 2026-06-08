@@ -6,14 +6,16 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
-import java.util.Calendar
+import java.time.LocalTime
 
 class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val startHour = ChimeManager.getStartHour(context)
         val endHour = ChimeManager.getEndHour(context)
-        val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        // ⚡ Bolt Optimization: Using java.time.LocalTime reduces object allocation
+        // and GC pressure compared to Calendar.getInstance()
+        val currentHour = LocalTime.now().hour
 
         // Only play the sound if the current hour is within the active window.
         // This is a safeguard; the alarm shouldn't fire outside this window anyway.
