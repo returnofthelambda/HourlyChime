@@ -167,10 +167,11 @@ fun TimePickerDialog(
     onDismiss: () -> Unit,
     onTimeSelected: (Int) -> Unit
 ) {
-    val hours = (0..23).toList()
+    // ⚡ Bolt Optimization: Eliminated `(0..23).toList()` allocation.
+    // Hours exactly match index 0..23, so we can use indices directly.
     val pickerState = rememberPickerState(
-        initialNumberOfOptions = hours.size,
-        initiallySelectedOption = hours.indexOf(initialHour)
+        initialNumberOfOptions = 24,
+        initiallySelectedOption = initialHour
     )
     val listState = rememberScalingLazyListState()
 
@@ -194,7 +195,7 @@ fun TimePickerDialog(
                     contentDescription = "Select hour"
                 ) { hourIndex ->
                     Text(
-                        text = formatHour(hours[hourIndex]),
+                        text = formatHour(hourIndex),
                         style = MaterialTheme.typography.title2
                     )
                 }
@@ -202,7 +203,7 @@ fun TimePickerDialog(
 
             item {
                 Button(
-                    onClick = { onTimeSelected(hours[pickerState.selectedOption]) },
+                    onClick = { onTimeSelected(pickerState.selectedOption) },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Confirm") }
             }
@@ -222,19 +223,28 @@ fun TimePickerDialog(
 // while responding dynamically to user Locale changes.
 private var cachedLocale: Locale? = null
 private var cachedFormatter: DateTimeFormatter? = null
+private var formattedHoursCache: Array<String>? = null
 
 private fun getHourFormatter(): DateTimeFormatter {
     val currentLocale = Locale.getDefault()
     if (cachedLocale != currentLocale || cachedFormatter == null) {
         cachedLocale = currentLocale
         cachedFormatter = DateTimeFormatter.ofPattern("h a", currentLocale)
+
+        // ⚡ Bolt Optimization: Rebuild the cache when the formatter changes
+        val newCache = Array(24) { "" }
+        for (i in 0..23) {
+            newCache[i] = LocalTime.of(i, 0).format(cachedFormatter!!)
+        }
+        formattedHoursCache = newCache
     }
     return cachedFormatter!!
 }
 
 // Helper function to format hour for display (e.g., 8 -> 8:00 AM)
 private fun formatHour(hour: Int): String {
-    // ⚡ Bolt Optimization: Using java.time.LocalTime and a cached DateTimeFormatter
-    // reduces object allocation and formatting time compared to SimpleDateFormat and Calendar
-    return LocalTime.of(hour, 0).format(getHourFormatter())
+    // ⚡ Bolt Optimization: Using a string cache array drastically reduces
+    // String allocation and formatting overhead inside the Picker list which calls this repeatedly
+    getHourFormatter() // Ensure cache is populated
+    return formattedHoursCache!![hour]
 }
