@@ -167,10 +167,12 @@ fun TimePickerDialog(
     onDismiss: () -> Unit,
     onTimeSelected: (Int) -> Unit
 ) {
-    val hours = (0..23).toList()
+    // ⚡ Bolt Optimization: Removed `val hours = (0..23).toList()` to prevent
+    // an ArrayList and Integer objects allocation on every recomposition.
+    // The Picker index exactly maps to the hour value (0-23).
     val pickerState = rememberPickerState(
-        initialNumberOfOptions = hours.size,
-        initiallySelectedOption = hours.indexOf(initialHour)
+        initialNumberOfOptions = 24,
+        initiallySelectedOption = initialHour
     )
     val listState = rememberScalingLazyListState()
 
@@ -194,7 +196,7 @@ fun TimePickerDialog(
                     contentDescription = "Select hour"
                 ) { hourIndex ->
                     Text(
-                        text = formatHour(hours[hourIndex]),
+                        text = formatHour(hourIndex),
                         style = MaterialTheme.typography.title2
                     )
                 }
@@ -202,7 +204,7 @@ fun TimePickerDialog(
 
             item {
                 Button(
-                    onClick = { onTimeSelected(hours[pickerState.selectedOption]) },
+                    onClick = { onTimeSelected(pickerState.selectedOption) },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Confirm") }
             }
@@ -218,23 +220,36 @@ fun TimePickerDialog(
     }
 }
 
-// Cached formatter to prevent recreation overhead in UI lists,
-// while responding dynamically to user Locale changes.
+// Cached formatter and pre-computed strings to prevent recreation overhead
+// in UI lists (especially Compose Pickers), while responding dynamically
+// to user Locale changes.
 private var cachedLocale: Locale? = null
 private var cachedFormatter: DateTimeFormatter? = null
+private val cachedHourStrings = Array<String?>(24) { null }
 
-private fun getHourFormatter(): DateTimeFormatter {
-    val currentLocale = Locale.getDefault()
+private fun getHourFormatter(currentLocale: Locale): DateTimeFormatter {
     if (cachedLocale != currentLocale || cachedFormatter == null) {
         cachedLocale = currentLocale
         cachedFormatter = DateTimeFormatter.ofPattern("h a", currentLocale)
+        // Clear string cache when locale changes
+        for (i in cachedHourStrings.indices) {
+            cachedHourStrings[i] = null
+        }
     }
     return cachedFormatter!!
 }
 
 // Helper function to format hour for display (e.g., 8 -> 8:00 AM)
 private fun formatHour(hour: Int): String {
-    // ⚡ Bolt Optimization: Using java.time.LocalTime and a cached DateTimeFormatter
-    // reduces object allocation and formatting time compared to SimpleDateFormat and Calendar
-    return LocalTime.of(hour, 0).format(getHourFormatter())
+    // ⚡ Bolt Optimization: Fully memoize the formatted hour strings.
+    // The previous optimization still allocated LocalTime and String objects
+    // on every render loop inside the Compose Picker. Caching the final strings
+    // eliminates these allocations entirely.
+    val currentLocale = Locale.getDefault()
+    val formatter = getHourFormatter(currentLocale)
+
+    if (cachedHourStrings[hour] == null) {
+        cachedHourStrings[hour] = LocalTime.of(hour, 0).format(formatter)
+    }
+    return cachedHourStrings[hour]!!
 }
