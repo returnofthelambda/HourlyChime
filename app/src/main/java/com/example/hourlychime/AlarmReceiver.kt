@@ -11,26 +11,29 @@ import java.time.LocalTime
 class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+        val pendingResult = goAsync()
         val startHour = ChimeManager.getStartHour(context)
         val endHour = ChimeManager.getEndHour(context)
         // ⚡ Bolt Optimization: Using java.time.LocalTime reduces object allocation
         // and GC pressure compared to Calendar.getInstance()
         val currentHour = LocalTime.now().hour
 
-        // Only play the sound if the current hour is within the active window.
-        // This is a safeguard; the alarm shouldn't fire outside this window anyway.
-        if (currentHour in startHour..endHour) {
-            playSound(context)
-        }
-
         // Always try to schedule the next chime. The ChimeManager will figure out
         // if the next one is in an hour or tomorrow morning.
         if (ChimeManager.isChimeEnabled(context)) {
             ChimeManager.scheduleNextChime(context)
         }
+
+        // Only play the sound if the current hour is within the active window.
+        // This is a safeguard; the alarm shouldn't fire outside this window anyway.
+        if (currentHour in startHour..endHour) {
+            playSound(context, pendingResult)
+        } else {
+            pendingResult.finish()
+        }
     }
 
-    private fun playSound(context: Context) {
+    private fun playSound(context: Context, pendingResult: PendingResult) {
         try {
             val mediaPlayer = MediaPlayer()
             mediaPlayer.setAudioAttributes(
@@ -41,11 +44,24 @@ class AlarmReceiver : BroadcastReceiver() {
             )
             val soundUri = Uri.parse("android.resource://${context.packageName}/${R.raw.chime}")
             mediaPlayer.setDataSource(context, soundUri)
-            mediaPlayer.prepare()
-            mediaPlayer.start()
-            mediaPlayer.setOnCompletionListener { it.release() }
+
+            mediaPlayer.setOnPreparedListener { mp ->
+                mp.start()
+            }
+            mediaPlayer.setOnCompletionListener { mp ->
+                mp.release()
+                pendingResult.finish()
+            }
+            mediaPlayer.setOnErrorListener { mp, _, _ ->
+                mp.release()
+                pendingResult.finish()
+                true
+            }
+            // ⚡ Bolt Optimization: Use prepareAsync() to avoid blocking the main thread with synchronous I/O operations.
+            mediaPlayer.prepareAsync()
         } catch (e: Exception) {
             e.printStackTrace()
+            pendingResult.finish()
         }
     }
 }
