@@ -83,12 +83,11 @@ afterEvaluate {
         publications {
             // Create a publication for our debug APK
             create<MavenPublication>("debug") {
-                groupId = "com.example.hourlychime"
-                artifactId = "app-debug" // Artifact ID for the debug version
+                groupId = "com.github.returnofthelambda"
+                artifactId = "hourly-chime" 
                 version = project.findProperty("appVersion")?.toString() ?: android.defaultConfig.versionName
 
                 // Tell Gradle which file to publish and which task creates it.
-                // This explicitly fixes the task dependency.
                 artifact(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk")) {
                     builtBy(tasks.named("assembleDebug"))
                 }

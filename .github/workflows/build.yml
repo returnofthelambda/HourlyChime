@@ -2,7 +2,8 @@ name: Build and Publish Wear OS App
 
 on:
   push:
-    branches: [ "main" ]
+    tags:
+      - 'v*.*.*'
 
 permissions:
   contents: read
@@ -11,33 +12,26 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
-          fetch-depth: 2
+          fetch-depth: 0 # Required to check full branch history
 
-      - name: Check for version change
-        id: check_version
+      - name: Verify tag is on main branch
         run: |
-          if git diff HEAD~1 HEAD -- app/build.gradle.kts | grep -q 'versionName ='; then
-            echo "✅ Version has changed. Proceeding with build and publish."
-            echo "version_changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "🛑 Version has not changed. Skipping build and publish."
-            echo "version_changed=false" >> $GITHUB_OUTPUT
+          if ! git branch -r --contains ${{ github.sha }} | grep -q 'origin/main'; then
+            echo "🛑 Build Aborted: This tag is not on the main branch."
+            exit 1
           fi
 
       - name: Set up JDK 17
-        if: steps.check_version.outputs.version_changed == 'true'
         uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
 
       - name: Cache Gradle packages
-        if: steps.check_version.outputs.version_changed == 'true'
         uses: actions/cache@v6
         with:
           path: |
@@ -47,19 +41,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Get app version
-        if: steps.check_version.outputs.version_changed == 'true'
-        id: get_version
-        run: echo "version=$(grep "versionName =" app/build.gradle.kts | awk -F'"' '{print $2}')" >> $GITHUB_OUTPUT
-
       - name: Make gradlew executable
-        if: steps.check_version.outputs.version_changed == 'true'
         run: chmod +x ./gradlew
 
       - name: Publish package to GitHub Packages
-        if: steps.check_version.outputs.version_changed == 'true'
         env:
           USERNAME: ${{ github.actor }}
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # We can now simplify this back to just "publish"
-        run: ./gradlew publish -PappVersion=${{ steps.get_version.outputs.version }}.${{ github.run_number }}
+        run: ./gradlew publish -PappVersion=${GITHUB_REF_NAME#v}
