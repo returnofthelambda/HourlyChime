@@ -162,89 +162,87 @@ fun WearApp() {
 
 @Composable
 fun TimePickerDialog(
-		showDialog: Boolean,
-		initialHour: Int,
-		onDismiss: () -> Unit,
-		onTimeSelected: (Int) -> Unit
-		) {
-	// ⚡ Bolt Optimization: Eliminated `(0..23).toList()` allocation.
-	// Hours exactly match index 0..23, so we can use indices directly.
-	val pickerState = rememberPickerState(
-			initialNumberOfOptions = 24,
-			initiallySelectedOption = initialHour
-			)
-		val listState = rememberScalingLazyListState()
+    showDialog: Boolean,
+    initialHour: Int,
+    onDismiss: () -> Unit,
+    onTimeSelected: (Int) -> Unit
+) {
+    val hours = remember { (0..23).toList() }
+    val pickerState = rememberPickerState(
+        initialNumberOfOptions = hours.size,
+        initiallySelectedOption = hours.indexOf(initialHour)
+    )
+    val listState = rememberScalingLazyListState()
 
-		Dialog(
-				showDialog = showDialog,
-				onDismissRequest = onDismiss,
-			  ) {
-			ScalingLazyColumn(
-					state = listState,
-					modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-					horizontalAlignment = Alignment.CenterHorizontally,
-					verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
-					) {
-				item { Text("Select Hour", style = MaterialTheme.typography.title2) }
+    Dialog(
+        showDialog = showDialog,
+        onDismissRequest = onDismiss,
+    ) {
+        ScalingLazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
+        ) {
+            item { Text("Select Hour", style = MaterialTheme.typography.title2) }
 
-				item {
-					Picker(
-							state = pickerState,
-							modifier = Modifier.height(100.dp),
-							separation = 4.dp,
-							contentDescription = "Select hour"
-						  ) { hourIndex ->
-						Text(
-								text = formatHour(hourIndex),
-								style = MaterialTheme.typography.title2
-							)
-					}
-				}
+            item {
+                Picker(
+                    state = pickerState,
+                    modifier = Modifier.height(100.dp),
+                    separation = 4.dp,
+                    contentDescription = "Select hour"
+                ) { hourIndex ->
+                    Text(
+                        text = formatHour(hours[hourIndex]),
+                        style = MaterialTheme.typography.title2
+                    )
+                }
+            }
 
-				item {
-					Button(
-							onClick = { onTimeSelected(pickerState.selectedOption) },
-							modifier = Modifier.fillMaxWidth()
-						  ) { Text("Confirm") }
-				}
+            item {
+                Button(
+                    onClick = { onTimeSelected(hours[pickerState.selectedOption]) },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Confirm") }
+            }
 
-				item {
-					Button(
-							onClick = onDismiss,
-							colors = ButtonDefaults.secondaryButtonColors(),
-							modifier = Modifier.fillMaxWidth()
-						  ) { Text("Cancel") }
-				}
-			}
-		}
+            item {
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.secondaryButtonColors(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Cancel") }
+            }
+        }
+    }
 }
 
 // Cached formatter to prevent recreation overhead in UI lists,
 // while responding dynamically to user Locale changes.
 private var cachedLocale: Locale? = null
 private var cachedFormatter: DateTimeFormatter? = null
-private var formattedHoursCache: Array<String>? = null
+private val formattedHoursCache = arrayOfNulls<String>(24)
 
 private fun getHourFormatter(): DateTimeFormatter {
-	val currentLocale = Locale.getDefault()
-		if (cachedLocale != currentLocale || cachedFormatter == null) {
-			cachedLocale = currentLocale
-				cachedFormatter = DateTimeFormatter.ofPattern("h a", currentLocale)
-
-				// ⚡ Bolt Optimization: Rebuild the cache when the formatter changes
-				val newCache = Array(24) { "" }
-			for (i in 0..23) {
-				newCache[i] = LocalTime.of(i, 0).format(cachedFormatter!!)
-			}
-			formattedHoursCache = newCache
-		}
-	return cachedFormatter!!
+    val currentLocale = Locale.getDefault()
+    if (cachedLocale != currentLocale || cachedFormatter == null) {
+        cachedLocale = currentLocale
+        cachedFormatter = DateTimeFormatter.ofPattern("h a", currentLocale)
+        // Clear cache when locale changes
+        formattedHoursCache.fill(null)
+    }
+    return cachedFormatter!!
 }
 
 // Helper function to format hour for display (e.g., 8 -> 8:00 AM)
 private fun formatHour(hour: Int): String {
-	// ⚡ Bolt Optimization: Using a string cache array drastically reduces
-	// String allocation and formatting overhead inside the Picker list which calls this repeatedly
-	getHourFormatter() // Ensure cache is populated
-		return formattedHoursCache!![hour]
+    // ⚡ Bolt Optimization: Cache formatted hour strings for the finite set of 24 hours.
+    // This achieves zero object allocation when scrolling the time picker.
+    val cached = formattedHoursCache[hour]
+    if (cached != null) return cached
+
+    val formatted = LocalTime.of(hour, 0).format(getHourFormatter())
+    formattedHoursCache[hour] = formatted
+    return formatted
 }
