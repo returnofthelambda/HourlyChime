@@ -30,134 +30,134 @@ import java.util.*
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            WearApp()
-        }
-    }
+	override fun onCreate(savedInstanceState: Bundle?) {
+		super.onCreate(savedInstanceState)
+			setContent {
+				WearApp()
+			}
+	}
 }
 
 @Composable
 fun WearApp() {
-    val context = LocalContext.current
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+	val context = LocalContext.current
+		val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    // --- State for UI ---
-    var isEnabled by remember { mutableStateOf(ChimeManager.isChimeEnabled(context)) }
-    var startHour by remember { mutableStateOf(ChimeManager.getStartHour(context)) }
-    var endHour by remember { mutableStateOf(ChimeManager.getEndHour(context)) }
-    var showTimePickerDialog by remember { mutableStateOf(false) }
-    var isEditingStartHour by remember { mutableStateOf(true) }
+		// --- State for UI ---
+		var isEnabled by remember { mutableStateOf(ChimeManager.isChimeEnabled(context)) }
+	var startHour by remember { mutableStateOf(ChimeManager.getStartHour(context)) }
+	var endHour by remember { mutableStateOf(ChimeManager.getEndHour(context)) }
+	var showTimePickerDialog by remember { mutableStateOf(false) }
+	var isEditingStartHour by remember { mutableStateOf(true) }
 
-    // --- Permission Handling Logic ---
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {}
+	// --- Permission Handling Logic ---
+	val permissionLauncher = rememberLauncherForActivityResult(
+			contract = ActivityResultContracts.StartActivityForResult()
+			) {}
 
-    fun hasPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            alarmManager.canScheduleExactAlarms()
-        } else {
-            true
-        }
-    }
+	fun hasPermission(): Boolean {
+		return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+			alarmManager.canScheduleExactAlarms()
+		} else {
+			true
+		}
+	}
 
-    // --- Main UI ---
-    MaterialTheme {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            timeText = { TimeText() }
-        ) {
-            val listState = rememberScalingLazyListState()
-            ScalingLazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                item {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.title1,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
+	// --- Main UI ---
+	MaterialTheme {
+		Scaffold(
+				modifier = Modifier.fillMaxSize(),
+				timeText = { TimeText() }
+				) {
+			val listState = rememberScalingLazyListState()
+				ScalingLazyColumn(
+						state = listState,
+						modifier = Modifier.fillMaxSize(),
+						horizontalAlignment = Alignment.CenterHorizontally,
+						verticalArrangement = Arrangement.Center
+						) {
+					item {
+						Text(
+								text = stringResource(R.string.app_name),
+								style = MaterialTheme.typography.title1,
+								modifier = Modifier.padding(bottom = 8.dp)
+							)
+					}
 
-                item {
-                    ToggleChip(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
-                        checked = isEnabled,
-                        onCheckedChange = { newCheckedState ->
-                            if (newCheckedState) {
-                                if (hasPermission()) {
-                                    isEnabled = true
-                                    ChimeManager.setChimeEnabled(context, true)
-                                    ChimeManager.scheduleOrCancelChime(context, true)
-                                } else {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                                        permissionLauncher.launch(intent)
-                                    }
-                                }
-                            } else {
-                                isEnabled = false
-                                ChimeManager.setChimeEnabled(context, false)
-                                ChimeManager.scheduleOrCancelChime(context, false)
-                            }
-                        },
-                        label = { Text("Enable Chime") },
-                        toggleControl = { Switch(checked = isEnabled) }
-                    )
-                }
+					item {
+						ToggleChip(
+								modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+								checked = isEnabled,
+								onCheckedChange = { newCheckedState ->
+								if (newCheckedState) {
+								if (hasPermission()) {
+								isEnabled = true
+								ChimeManager.setChimeEnabled(context, true)
+								ChimeManager.scheduleOrCancelChime(context, true)
+								} else {
+								if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+								val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+								permissionLauncher.launch(intent)
+								}
+								}
+								} else {
+								isEnabled = false
+								ChimeManager.setChimeEnabled(context, false)
+								ChimeManager.scheduleOrCancelChime(context, false)
+								}
+								},
+								label = { Text("Enable Chime") },
+								toggleControl = { Switch(checked = isEnabled) }
+						)
+					}
 
-                item {
-                    Chip(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
-                        label = { Text("Start Time") },
-                        secondaryLabel = { Text(formatHour(startHour)) },
-                        onClick = {
-                            isEditingStartHour = true
-                            showTimePickerDialog = true
-                        }
-                    )
-                }
+					item {
+						Chip(
+								modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+								label = { Text("Start Time") },
+								secondaryLabel = { Text(formatHour(startHour)) },
+								onClick = {
+								isEditingStartHour = true
+								showTimePickerDialog = true
+								}
+							)
+					}
 
-                item {
-                    Chip(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
-                        label = { Text("End Time") },
-                        secondaryLabel = { Text(formatHour(endHour)) },
-                        onClick = {
-                            isEditingStartHour = false
-                            showTimePickerDialog = true
-                        }
-                    )
-                }
-            }
-        }
-    }
+					item {
+						Chip(
+								modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+								label = { Text("End Time") },
+								secondaryLabel = { Text(formatHour(endHour)) },
+								onClick = {
+								isEditingStartHour = false
+								showTimePickerDialog = true
+								}
+							)
+					}
+				}
+		}
+	}
 
-    // --- Time Picker Dialog ---
-    TimePickerDialog(
-        showDialog = showTimePickerDialog,
-        initialHour = if (isEditingStartHour) startHour else endHour,
-        onDismiss = { showTimePickerDialog = false },
-        onTimeSelected = { selectedHour ->
-            if (isEditingStartHour) {
-                startHour = selectedHour
-                ChimeManager.setStartHour(context, selectedHour)
-            } else {
-                endHour = selectedHour
-                ChimeManager.setEndHour(context, selectedHour)
-            }
-            // If the chime is already enabled, reschedule it with the new times
-            if (isEnabled) {
-                ChimeManager.scheduleNextChime(context)
-            }
-            showTimePickerDialog = false
-        }
-    )
+	// --- Time Picker Dialog ---
+	TimePickerDialog(
+			showDialog = showTimePickerDialog,
+			initialHour = if (isEditingStartHour) startHour else endHour,
+			onDismiss = { showTimePickerDialog = false },
+			onTimeSelected = { selectedHour ->
+			if (isEditingStartHour) {
+			startHour = selectedHour
+			ChimeManager.setStartHour(context, selectedHour)
+			} else {
+			endHour = selectedHour
+			ChimeManager.setEndHour(context, selectedHour)
+			}
+			// If the chime is already enabled, reschedule it with the new times
+			if (isEnabled) {
+			ChimeManager.scheduleNextChime(context)
+			}
+			showTimePickerDialog = false
+			}
+			)
 }
 
 @Composable
