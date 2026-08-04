@@ -2,7 +2,7 @@ name: Build and Publish Wear OS App
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 permissions:
   contents: read
