@@ -50,16 +50,22 @@ fun WearApp() {
     var showTimePickerDialog by remember { mutableStateOf(false) }
     var isEditingStartHour by remember { mutableStateOf(true) }
 
-    // --- Permission Handling Logic ---
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {}
-
     fun hasPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             alarmManager.canScheduleExactAlarms()
         } else {
             true
+        }
+    }
+
+    // --- Permission Handling Logic ---
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (hasPermission()) {
+            isEnabled = true
+            ChimeManager.setChimeEnabled(context, true)
+            ChimeManager.scheduleOrCancelChime(context, true)
         }
     }
 
