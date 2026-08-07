@@ -14,6 +14,8 @@ object ChimeManager {
     private const val KEY_CHIME_ENABLED = "chime_enabled"
     private const val KEY_START_HOUR = "start_hour"
     private const val KEY_END_HOUR = "end_hour"
+    private const val KEY_LAST_CHIME_TIME = "last_chime_time"
+    private const val KEY_NEXT_CHIME_TIME = "next_chime_time"
     private const val ALARM_REQUEST_CODE = 1001
 
     // --- Preference Management ---
@@ -26,6 +28,26 @@ object ChimeManager {
     fun isChimeEnabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getBoolean(KEY_CHIME_ENABLED, false)
+    }
+
+    fun setLastChimeTime(context: Context, timeMillis: Long) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putLong(KEY_LAST_CHIME_TIME, timeMillis).apply()
+    }
+
+    fun getLastChimeTime(context: Context): Long {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getLong(KEY_LAST_CHIME_TIME, 0L)
+    }
+
+    fun setNextChimeTime(context: Context, timeMillis: Long) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putLong(KEY_NEXT_CHIME_TIME, timeMillis).apply()
+    }
+
+    fun getNextChimeTime(context: Context): Long {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getLong(KEY_NEXT_CHIME_TIME, 0L)
     }
 
     fun setStartHour(context: Context, hour: Int) {
@@ -67,26 +89,37 @@ object ChimeManager {
 
         val nextChimeTime = calculateNextChimeTime(now, startHour, endHour)
 
-        // If nextChimeTime is null, it means we are outside the active window and should not schedule.
-        // However, the logic in calculateNextChimeTime should always return a valid future time.
-        setAlarm(context, nextChimeTime.toInstant().toEpochMilli())
+        val triggerAtMillis = nextChimeTime.toInstant().toEpochMilli()
+        setNextChimeTime(context, triggerAtMillis)
+        setAlarm(context, triggerAtMillis)
     }
 
     @androidx.annotation.VisibleForTesting
     internal fun calculateNextChimeTime(now: ZonedDateTime, startHour: Int, endHour: Int): ZonedDateTime {
         val currentHour = now.hour
-        // ⚡ Bolt Optimization: truncatedTo reduces allocations vs setting individual fields
+        // Start with the top of the current hour
         var nextChime = now.truncatedTo(ChronoUnit.HOURS)
 
         if (currentHour < startHour) {
             // Case 1: Before the window today. Next chime is at the start hour today.
             nextChime = nextChime.withHour(startHour)
         } else if (currentHour >= endHour) {
-            // Case 2: After the window today. Next chime is at the start hour tomorrow.
+            // Case 2: After the window today (or at the very last chime hour).
+            // Next chime is at the start hour tomorrow.
             nextChime = nextChime.plusDays(1).withHour(startHour)
         } else {
             // Case 3: Within the window. Next chime is at the top of the next hour.
             nextChime = nextChime.plusHours(1)
+        }
+
+        // ⚡ Bolt Optimization: Ensure the next chime is at least 1 second in the future.
+        // This prevents immediate re-triggering if the alarm fires slightly early.
+        if (!nextChime.isAfter(now)) {
+            nextChime = nextChime.plusHours(1)
+            // Re-check window if we had to push it forward
+            if (nextChime.hour > endHour) {
+                nextChime = nextChime.plusDays(1).withHour(startHour)
+            }
         }
 
         return nextChime
@@ -107,10 +140,15 @@ object ChimeManager {
         val showAppPendingIntent = PendingIntent.getActivity(context, 0, showAppIntent, PendingIntent.FLAG_IMMUTABLE)
         val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showAppPendingIntent)
 
+        // Using setAlarmClock for maximum reliability. 
+        // Note: This shows an alarm icon on the watch face. 
+        // If a "quieter" background chime is preferred, setExactAndAllowWhileIdle could be used,
+        // but it is more likely to be throttled by the system.
         alarmManager.setAlarmClock(alarmClockInfo, alarmPendingIntent)
     }
 
     fun cancelChime(context: Context) {
+        setNextChimeTime(context, 0L)
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
