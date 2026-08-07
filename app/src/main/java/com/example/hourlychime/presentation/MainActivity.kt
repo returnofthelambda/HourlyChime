@@ -3,6 +3,7 @@ package com.example.hourlychime.presentation
 import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -15,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,21 +56,49 @@ fun WearApp() {
 	var isEditingStartHour by remember { mutableStateOf(true) }
 
 	fun hasPermission(): Boolean {
-		return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+		val hasExactAlarm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
 			alarmManager.canScheduleExactAlarms()
 		} else {
 			true
 		}
+		
+		val hasNotifications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+			ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+		} else {
+			true
+		}
+		
+		return hasExactAlarm && hasNotifications
 	}
 
 	// --- Permission Handling Logic ---
-	val permissionLauncher = rememberLauncherForActivityResult(
+	val exactAlarmLauncher = rememberLauncherForActivityResult(
 			contract = ActivityResultContracts.StartActivityForResult()
 			) {
 		if (hasPermission()) {
 			isEnabled = true
 				ChimeManager.setChimeEnabled(context, true)
 				ChimeManager.scheduleOrCancelChime(context, true)
+				nextChimeTime = ChimeManager.getNextChimeTime(context)
+		}
+	}
+
+	val notificationPermissionLauncher = rememberLauncherForActivityResult(
+		contract = ActivityResultContracts.RequestPermission()
+	) { isGranted ->
+		if (isGranted) {
+			if (hasPermission()) {
+				isEnabled = true
+				ChimeManager.setChimeEnabled(context, true)
+				ChimeManager.scheduleOrCancelChime(context, true)
+				nextChimeTime = ChimeManager.getNextChimeTime(context)
+			} else {
+				// Still need exact alarm?
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+					val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+					exactAlarmLauncher.launch(intent)
+				}
+			}
 		}
 	}
 
@@ -105,9 +135,13 @@ fun WearApp() {
 								ChimeManager.scheduleOrCancelChime(context, true)
 								nextChimeTime = ChimeManager.getNextChimeTime(context)
 								} else {
-								if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+								// Request Notifications first on Android 13+
+								if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && 
+									ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+									notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+								} else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
 								val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-								permissionLauncher.launch(intent)
+								exactAlarmLauncher.launch(intent)
 								}
 								}
 								} else {

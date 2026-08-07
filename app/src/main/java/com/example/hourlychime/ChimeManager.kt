@@ -90,6 +90,7 @@ object ChimeManager {
         val nextChimeTime = calculateNextChimeTime(now, startHour, endHour)
 
         val triggerAtMillis = nextChimeTime.toInstant().toEpochMilli()
+        android.util.Log.d("ChimeManager", "Scheduling next chime for: $nextChimeTime ($triggerAtMillis)")
         setNextChimeTime(context, triggerAtMillis)
         setAlarm(context, triggerAtMillis)
     }
