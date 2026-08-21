@@ -45,6 +45,22 @@
             </intent-filter>
         </receiver>
 
+        <!-- Pomodoro Tile -->
+        <service
+            android:name=".PomodoroTileService"
+            android:description="@string/pomodoro_tile_description"
+            android:exported="true"
+            android:label="@string/pomodoro_tile_label">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE" />
+                <action android:name="com.google.android.clockwork.tiles.TileProviderService" />
+            </intent-filter>
+
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/ic_launcher_foreground" />
+        </service>
+
     </application>
 
 </manifest>

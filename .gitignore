@@ -60,3 +60,4 @@ captures/
 .cxx/
 .externalNativeBuild/
 
+android-sdk/
